@@ -1,1 +1,0 @@
-{"version":0,"config":{"vector_size":100,"index":{"type":"plain","options":{}},"payload_index":null,"distance":"Dot","storage_type":{"type":"in_memory"}}}
