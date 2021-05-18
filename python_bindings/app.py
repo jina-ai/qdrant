@@ -1,5 +1,7 @@
 import numpy as np
 import json
+
+from jina import Document, DocumentArray
 from qdrant_segment_py import \
     PyVectorIndexType, \
     PyPayloadIndexType, \
@@ -7,7 +9,6 @@ from qdrant_segment_py import \
     PyStorageType, \
     PySegmentConfig, \
     PySegment
-from jina import Document, DocumentArray
 
 TOP_K = 10
 GRANULARITY_4_IDX_FILTER = 10

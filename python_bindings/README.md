@@ -36,6 +36,7 @@ This is the content inside app.py:
 import numpy as np
 import json
 
+from jina import Document, DocumentArray
 from qdrant_segment_py import
     PyVectorIndexType,
     PyPayloadIndexType,
@@ -43,7 +44,6 @@ from qdrant_segment_py import
     PyStorageType,
     PySegmentConfig,
     PySegment
-from jina import Document, DocumentArray
 
 TOP_K = 10
 GRANULARITY_4_IDX_FILTER = 10
@@ -117,7 +117,6 @@ for id in new_ids:
     extracted_doc = Document(payload)
     print(f' extracted_doc {extracted_doc}')
     assert extracted_doc.text == f'I am document {id}'
-
 ```
 
 Limitations for Jina.
