@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use segment::types::{Distance, PointIdType, VectorElementType, ScoredPoint, ScoreType, Indexes, PayloadIndexType, StorageType, SegmentConfig};
+use segment::types::{Distance, PointIdType, VectorElementType, ScoredPoint, ScoreType, Indexes, PayloadIndexType, StorageType, SegmentConfig, PayloadKeyType, TheMap, PayloadType};
 use segment::segment::Segment;
 use std::path::Path;
 use segment::entry::entry_point::{OperationResult, SegmentEntry, OperationError};
@@ -171,6 +171,24 @@ impl PySegment {
     pub fn index(&mut self, point_id: PointIdType, vector: &PyArray1<VectorElementType>) -> PyResult<bool> {
         let result = self.segment.upsert_point(PySegment::DEFAULT_OP_NUM, point_id, &vector.to_vec().unwrap());
         handle_inner_result(result)
+    }
+
+    pub fn set_full_payload(&mut self, point_id: PointIdType, payload: TheMap<PayloadKeyType, String>) -> PyResult<bool> {
+        let inner_payload = payload.into_iter().map(|(k, v)| (k, PayloadType::Keyword(vec![v]))).rev().collect();
+        let result = self.segment.set_full_payload(PySegment::DEFAULT_OP_NUM, point_id, inner_payload);
+        handle_inner_result(result)
+    }
+
+    fn get_full_payload(&self, point_id: PointIdType) -> TheMap<PayloadKeyType, String> {
+        let payload = self.segment.payload(point_id).unwrap();
+        let mut results = TheMap::new();
+        for (k, _v) in payload {
+            match _v {
+                PayloadType::Keyword(x) => results.insert(k, x.iter().map(String::from).collect()),
+                _ => None
+            };
+        }
+        results
     }
 
     pub fn delete(&mut self, point_id: PointIdType) -> PyResult<bool> {
