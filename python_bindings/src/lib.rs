@@ -16,6 +16,7 @@ use serde_json;
 use serde::{Deserialize, Serialize};
 use schemars::{JsonSchema};
 use prost::Message;
+use prost_types::value;
 use std::io::Cursor;
 
 fn handle_inner_result<T> (result: OperationResult<T>) -> PyResult<T> {
@@ -210,8 +211,28 @@ impl PySegment {
     }
 
     pub fn set_full_payload_document(&mut self, point_id: PointIdType, payload: Vec<u8>) -> PyResult<bool> {
+        fn _convert_doc_into_payload(doc: &jina::DocumentProto) -> TheMap<PayloadKeyType, PayloadType> {
+            let mut payload = TheMap::new();
+            payload.insert("granularity".to_string(), PayloadType::Integer(vec![doc.granularity.into()]));
+            payload.insert("mime_type".to_string(), PayloadType::Keyword(vec![doc.mime_type.to_string()]));
+            payload.insert("modality".to_string(), PayloadType::Keyword(vec![doc.modality.to_string()]));
+            match &doc.tags {
+                Some(tags) => {
+                    for (k, v) in &tags.fields {
+                        match &v.kind {
+                            Some(value::Kind::NumberValue(x)) => payload.insert(k.to_string(), PayloadType::Float(vec![x.clone()])),
+                            Some(value::Kind::StringValue(x)) => payload.insert(k.to_string(), PayloadType::Keyword(vec![x.to_string()])),
+                            _ => None
+                        };
+                    }
+                }
+                None => ()
+            };
+            payload
+        }
         let doc = jina::DocumentProto::decode(&mut Cursor::new(payload)).unwrap();
-        handle_inner_result(Ok(true))
+        let result = self.segment.set_full_payload(PySegment::DEFAULT_OP_NUM, point_id, _convert_doc_into_payload(&doc));
+        handle_inner_result(result)
     }
 
     fn get_full_payload(&self, point_id: PointIdType) -> TheMap<PayloadKeyType, String> {
@@ -219,9 +240,9 @@ impl PySegment {
         let mut results = TheMap::new();
         for (k, _v) in payload {
             match _v {
-                PayloadType::Keyword(x) => results.insert(k, x.iter().map(String::from).collect()),
-                PayloadType::Integer(x) => results.insert(k, x.iter().map(|k| k.to_string()).collect()),
-                PayloadType::Float(x) => results.insert(k, x.iter().map(|k| k.to_string()).collect()),
+                PayloadType::Keyword(x) => results.insert(k, x.iter().map(|y| y.to_string()).collect()),
+                PayloadType::Integer(x) => results.insert(k, x.iter().map(|y| y.to_string()).collect()),
+                PayloadType::Float(x) => results.insert(k, x.iter().map(|y| y.to_string()).collect()),
                 _ => None
             };
         }
