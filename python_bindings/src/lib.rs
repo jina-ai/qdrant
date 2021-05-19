@@ -1,3 +1,6 @@
+#[path = "./jina.rs"]
+pub mod jina;
+
 use pyo3::prelude::*;
 use segment::types::{Distance, PointIdType, VectorElementType, ScoredPoint, ScoreType, Indexes, PayloadIndexType, StorageType, SegmentConfig, PayloadKeyType, TheMap, PayloadType, IntPayloadType, FloatPayloadType};
 use segment::segment::Segment;
@@ -12,6 +15,8 @@ use std::fs::File;
 use serde_json;
 use serde::{Deserialize, Serialize};
 use schemars::{JsonSchema};
+use prost::Message;
+use std::io::Cursor;
 
 fn handle_inner_result<T> (result: OperationResult<T>) -> PyResult<T> {
     match result {
@@ -202,6 +207,11 @@ impl PySegment {
         }).rev().collect();
         let result = self.segment.set_full_payload(PySegment::DEFAULT_OP_NUM, point_id, inner_payload);
         handle_inner_result(result)
+    }
+
+    pub fn set_full_payload_document(&mut self, point_id: PointIdType, payload: Vec<u8>) -> PyResult<bool> {
+        let doc = jina::DocumentProto::decode(&mut Cursor::new(payload)).unwrap();
+        handle_inner_result(Ok(true))
     }
 
     fn get_full_payload(&self, point_id: PointIdType) -> TheMap<PayloadKeyType, String> {

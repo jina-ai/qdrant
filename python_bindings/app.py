@@ -83,3 +83,6 @@ for id in new_ids:
     extracted_doc = Document(payload)
     print(f' extracted_doc {extracted_doc}')
     assert extracted_doc.text == f'I am document {id}'
+
+for doc in docs:
+    segment.set_full_payload_document(int(doc.id), doc.SerializeToString())
