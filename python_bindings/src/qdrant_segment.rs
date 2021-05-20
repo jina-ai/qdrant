@@ -92,11 +92,32 @@ impl PySegment {
             payload.insert("siblings".to_string(), PayloadType::Integer(vec![doc.siblings.into()]));
             payload.insert("offset".to_string(), PayloadType::Integer(vec![doc.offset.into()]));
             payload.insert("weight".to_string(), PayloadType::Float(vec![doc.weight.into()]));
+            match &doc.content {
+                None => (),
+                Some(jina_proto::document_proto::Content::Buffer(_buffer)) => {
+                    println!("Buffer content is not supported");
+                    ()
+                },
+                Some(jina_proto::document_proto::Content::Blob(_blob)) => {
+                    println!("Blob content is not supported");
+                    ()
+                },
+                Some(jina_proto::document_proto::Content::Text(text)) =>  {
+                    payload.insert("content".to_string(), PayloadType::Keyword(vec![text.to_string()]));
+                    payload.insert("text".to_string(), PayloadType::Keyword(vec![text.to_string()]));
+                    ()
+                },
+                Some(jina_proto::document_proto::Content::Uri(uri)) => {
+                    payload.insert("content".to_string(), PayloadType::Keyword(vec![uri.to_string()]));
+                    payload.insert("uri".to_string(), PayloadType::Keyword(vec![uri.to_string()]));
+                    ()
+                }
+            }
             match &doc.tags {
                 Some(tags) => {
                     for (k, v) in &tags.fields {
                         match &v.kind {
-                            // TODO: problem, match only works on integers
+                            // TODO: problem, qdrant matching only works on integers
                             Some(value::Kind::NumberValue(x)) => payload.insert(k.to_string(), PayloadType::Integer(vec![x.clone() as i64])),
                             Some(value::Kind::StringValue(x)) => payload.insert(k.to_string(), PayloadType::Keyword(vec![x.to_string()])),
                             _ => None
@@ -130,24 +151,42 @@ impl PySegment {
     fn get_full_payload_as_document(&self, point_id: PointIdType) -> PyObject {
         //TODO: See how to better pass bytes without getting GIL: move all logic to new object.
         // Maybe create a PyDocument that wraps the conversion from Bytes and to Bytes and so on
-        fn _get_string_value(value: &PayloadType) -> Option<String>{
+        fn _get_string_value(value: &PayloadType) -> Option<String> {
             match value {
                 PayloadType::Keyword(x) => Some(x.iter().map(|y| y.to_string()).collect()),
                 _ => None
             }
         }
 
-        fn _get_int_value(value: &PayloadType) -> Option<u32>{
+        fn _get_int_value(value: &PayloadType) -> Option<u32> {
             match value {
                 PayloadType::Integer(x) => Some(x[0] as u32),
                 _ => None
             }
         }
 
-        fn _get_float_value(value: &PayloadType) -> Option<f32>{
+        fn _get_float_value(value: &PayloadType) -> Option<f32> {
             match value {
                 PayloadType::Float(x) => Some(x[0] as f32),
                 _ => None
+            }
+        }
+
+        fn _set_document_text(doc: &mut jina_proto::DocumentProto, value: &PayloadType) {
+            match _get_string_value(value) {
+                Some(text) => {
+                    doc.content = Some(jina_proto::document_proto::Content::Text(text))
+                }
+                None => ()
+            }
+        }
+
+        fn _set_document_uri(doc: &mut jina_proto::DocumentProto, value: &PayloadType) {
+            match _get_string_value(value) {
+                Some(uri) => {
+                    doc.content = Some(jina_proto::document_proto::Content::Uri(uri))
+                }
+                None => ()
             }
         }
 
@@ -168,12 +207,12 @@ impl PySegment {
                 "weight" => _get_float_value(&v).map(|x| document.weight = x).unwrap(),
                 "chunks" => (),
                 "matches" => (),
-                "content" => (),
                 "evaluations" => (),
-                "text" => (),
                 "blob" => (),
                 "buffer" => (),
-                "uri" => (),
+                "content" => (),
+                "text" => _set_document_text(&mut document, &v),
+                "uri" => _set_document_uri(&mut document, &v),
                 x => {
                     // set tag values
                     match v {
