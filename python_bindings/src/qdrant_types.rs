@@ -4,7 +4,7 @@ use std::io::BufReader;
 use std::fs::File;
 use serde::{Deserialize, Serialize};
 use schemars::{JsonSchema};
-use segment::types::{Distance, Indexes, PayloadIndexType, StorageType, SegmentConfig, IntPayloadType, FloatPayloadType};
+use segment::types::{Distance, Indexes, PayloadIndexType, StorageType, SegmentConfig, IntPayloadType, FloatPayloadType, SearchParams};
 use segment::segment::Segment;
 
 #[pyclass(unsendable, module="qdrant_segment_py", dict)]
@@ -93,6 +93,21 @@ impl PyStorageType {
             },
         };
         PyStorageType { storage: stype.unwrap()}
+    }
+}
+
+
+#[pyclass(unsendable, module="qdrant_segment_py", dict)]
+pub struct PySearchParams {
+    pub params: SearchParams
+}
+
+#[pymethods]
+impl PySearchParams {
+    //TODO: LEARN HOW TO ALSO ENABLE READING FROM TEXT
+    #[new]
+    fn new(ef: usize) -> Self {
+        PySearchParams { params: SearchParams::Hnsw {ef}}
     }
 }
 

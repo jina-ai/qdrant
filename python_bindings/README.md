@@ -113,7 +113,7 @@ field['key'] = 'granularity'
 field['match'] = {'integer': 4}
 filter['should'] = [field]
 
-filtered_ids, filtered_scores = segment.search(query, json.dumps(filter), TOP_K)
+filtered_ids, filtered_scores = segment.search(query, json.dumps(filter), TOP_K, None)
 assert len(filtered_ids) == 1
 assert len(filtered_scores) == 1
 assert filtered_ids[0] == GRANULARITY_4_IDX_FILTER
@@ -132,7 +132,7 @@ for id in ids:
     segment.delete(id)
 
 print(f' Third search (No filter): Expect 10 results but different from the first since they were removed')
-new_ids, new_scores = segment.search(query, None, 10)
+new_ids, new_scores = segment.search(query, None, 10, None)
 assert set(new_ids) != ids
 
 for id in new_ids:
@@ -167,7 +167,7 @@ filter['should'] = [field]
 
 print(f' Now we do search with a filter that should only match new added Documents with tags["hello"] = "world" \n'
       f'=> {filter}')
-filtered_ids, filtered_scores = segment.search(query, json.dumps(filter), 1000)
+filtered_ids, filtered_scores = segment.search(query, json.dumps(filter), 1000, None)
 assert len(filtered_ids) == 9
 assert len(filtered_scores) == 9
 print(f' RESULT {filtered_ids}')
@@ -179,7 +179,7 @@ field['match'] = {'integer': 2005}
 filter['should'] = [field]
 print(f' Now we do search with a filter that should only match new added Documents with tags["_id"] = 2005\n'
       f'=> {filter}')
-filtered_ids, filtered_scores = segment.search(query, json.dumps(filter), 1000)
+filtered_ids, filtered_scores = segment.search(query, json.dumps(filter), 1000, None)
 assert len(filtered_ids) == 1
 assert len(filtered_scores) == 1
 assert set(filtered_ids) == {2005}
@@ -202,7 +202,7 @@ filter['must'] = [field1, field2]
 print(f' Now we do search with a filter that should only match new added Documents with tags["_id"] = 2005 or 2006 and tags["hello"] == "world"\n'
       f'=> {filter}')
 
-filtered_ids, filtered_scores = segment.search(query, json.dumps(filter), 1000)
+filtered_ids, filtered_scores = segment.search(query, json.dumps(filter), 1000, None)
 assert len(filtered_ids) == 1
 assert len(filtered_scores) == 1
 assert set(filtered_ids) == {2006}

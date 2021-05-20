@@ -1,7 +1,7 @@
 #[path = "./jina_proto.rs"]
 mod jina_proto;
 
-use super::qdrant_types::{PyPayloadType, PySegmentConfig};
+use super::qdrant_types::{PyPayloadType, PySegmentConfig, PySearchParams};
 use crate::qdrant_types::PySegment;
 
 use pyo3::prelude::*;
@@ -255,7 +255,7 @@ impl PySegment {
         handle_inner_result(result)
     }
 
-    pub fn search(&self, vector: &PyArray1<VectorElementType>, filter: Option<String>, top_k: usize) -> PyResult<(Vec<PointIdType>, Vec<ScoreType>)> {
+    pub fn search(&self, vector: &PyArray1<VectorElementType>, filter: Option<String>, top_k: usize, params: Option<&PySearchParams>) -> PyResult<(Vec<PointIdType>, Vec<ScoreType>)> {
         fn _convert_scored_point_vec(vec: Vec<ScoredPoint>) -> (Vec<PointIdType>, Vec<ScoreType>) {
             vec.into_iter().map(
                 |scored_point| (scored_point.id, scored_point.score)).unzip()
@@ -263,7 +263,8 @@ impl PySegment {
         let qdrant_filter = filter.map(|f| {
             serde_json::from_str(&f).unwrap()
         });
-        let result = self.segment.search(&vector.to_vec().unwrap(), Option::from(&qdrant_filter), top_k, None);
+        let search_params = params.map(|p| p.params);
+        let result = self.segment.search(&vector.to_vec().unwrap(), Option::from(&qdrant_filter), top_k, search_params.as_ref());
         handle_inner_result(result.map(|vec| _convert_scored_point_vec(vec)))
     }
 }
