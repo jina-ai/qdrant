@@ -4,9 +4,12 @@ This is the first iteration to try to build Python bindings for the segment modu
 
 The intention is to offer the ANN functionality directly from Python without needing to have a Qdrant server.
 
-## Instructions to build.
+## Instructions to build
+
 
 ### Prerequisites
+
+#### Install rust, cargo and maturin
 
 Check how to install [rust and cargo](https://www.rust-lang.org/tools/install) 
 
@@ -15,6 +18,22 @@ Install maturin as tool for building the project and wheels.
 ```shell
 pip install maturin
 ```
+
+#### Build the rust jina DocumentProto
+
+Inside the subfolder `jina-proto`:
+
+```shell
+cargo build --release
+```
+
+#### Copy resulting `jina.rs` artifact
+
+Inside the subfolder `src`:
+```shell
+cp ../jina-proto/target/release/build/jina-rust-proto-*/out/jina.rs .
+```
+#### Build qdrant_segment_py
 
 From this folder, run:
 
@@ -106,10 +125,12 @@ for id in filtered_ids:
 
 print(f' Remove first set of results')
 
+deleted_ids = []
 for id in ids:
+    deleted_ids.append(id)
     segment.delete(id)
 
-print(f' Third search (No filter): Expect 10 results but different from the first since they were removing')
+print(f' Third search (No filter): Expect 10 results but different from the first since they were removed')
 new_ids, new_scores = segment.search(query, None, 10)
 assert set(new_ids) != ids
 
@@ -119,6 +140,43 @@ for id in new_ids:
     print(f' extracted_doc {extracted_doc}')
     assert extracted_doc.text == f'I am document {id}'
 
+print(f' No we will add documents using the set_full_payload_document interface to serialize the document that will be loaded by the `DocumentProto` in rust')
+new_docs = DocumentArray([Document(id=str(i), embedding=get_random_numpy(), text=f'I am document {i}', granularity=5, weight=5) for i in range(2000, 2010)])
+
+for doc in new_docs:
+    doc.tags['hello'] = 'world'
+    doc.tags['inner_float'] = float(doc.id)
+    result = segment.index(int(doc.id), doc.embedding)
+    segment.set_full_payload_document(int(doc.id), doc.SerializeToString())
+    payload = segment.get_full_payload(int(doc.id))
+    extracted_doc = Document(payload)
+    print(f' extracted_doc {extracted_doc}')
+    assert extracted_doc.tags['hello'] == 'world'
+
+filter = {}
+field1 = {}
+field1['key'] = 'hello'
+field1['match'] = {'keyword': 'world'}
+filter['should'] = [field1]
+
+filtered_ids, filtered_scores = segment.search(query, json.dumps(filter), 1000)
+assert len(filtered_ids) == 10
+assert len(filtered_scores) == 10
+
+filter = {}
+field1 = {}
+field1['key'] = 'hello'
+field1['match'] = {'keyword': 'world'}
+field2 = {}
+field2['key'] = 'inner_float'
+field2['match'] = {'integer': 2005}
+filter['should'] = [field1, field2]
+print(f' filtered_ids {len(filtered_ids)}')
+filtered_ids, filtered_scores = segment.search(query, json.dumps(filter), 1000)
+print(f' len {len(filtered_ids)}')
+assert len(filtered_ids) == 1
+assert len(filtered_scores) == 1
+assert filtered_ids[0] == 2005
 ```
 
 Limitations for Jina.
