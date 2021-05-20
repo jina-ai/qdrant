@@ -31,8 +31,9 @@ cargo build --release
 
 Inside the subfolder `src`:
 ```shell
-cp ../jina-proto/target/release/build/jina-rust-proto-*/out/jina.rs .
+cp ../jina-proto/target/release/build/jina-rust-proto-*/out/jina.rs jina_proto.rs
 ```
+
 #### Build qdrant_segment_py
 
 From this folder, run:
@@ -140,43 +141,72 @@ for id in new_ids:
     print(f' extracted_doc {extracted_doc}')
     assert extracted_doc.text == f'I am document {id}'
 
-print(f' No we will add documents using the set_full_payload_document interface to serialize the document that will be loaded by the `DocumentProto` in rust')
+
+print(f' No we will add documents using the set_full_payload_document interface to serialize the document that will be loaded by the `DocumentProto` in rust '
+      f' \n Only one of them does not have `tags["hello"] = "world". Inside qdrant. "tags" content is flattened because qdrant does not support nested payload. And '
+      f'these fields would not be filterable')
 new_docs = DocumentArray([Document(id=str(i), embedding=get_random_numpy(), text=f'I am document {i}', granularity=5, weight=5) for i in range(2000, 2010)])
 
 for doc in new_docs:
-    doc.tags['hello'] = 'world'
-    doc.tags['inner_float'] = float(doc.id)
+    if int(doc.id) != 2005:
+        doc.tags['hello'] = 'world'
+    doc.tags['_id'] = float(doc.id)
     result = segment.index(int(doc.id), doc.embedding)
     segment.set_full_payload_document(int(doc.id), doc.SerializeToString())
-    payload = segment.get_full_payload(int(doc.id))
+    payload = segment.get_full_payload_as_document(int(doc.id))
     extracted_doc = Document(payload)
-    print(f' extracted_doc {extracted_doc}')
-    assert extracted_doc.tags['hello'] == 'world'
+    if int(extracted_doc.id) != 2005:
+        assert extracted_doc.tags['hello'] == 'world'
+    print(f' extracted_doc from rust DocumentProto {Document(payload)}')
 
 filter = {}
-field1 = {}
-field1['key'] = 'hello'
-field1['match'] = {'keyword': 'world'}
-filter['should'] = [field1]
+field = {}
+field['key'] = 'hello'
+field['match'] = {'keyword': 'world'}
+filter['should'] = [field]
 
+print(f' Now we do search with a filter that should only match new added Documents with tags["hello"] = "world" \n'
+      f'=> {filter}')
 filtered_ids, filtered_scores = segment.search(query, json.dumps(filter), 1000)
-assert len(filtered_ids) == 10
-assert len(filtered_scores) == 10
+assert len(filtered_ids) == 9
+assert len(filtered_scores) == 9
+print(f' RESULT {filtered_ids}')
+
+filter = {}
+field = {}
+field['key'] = '_id'
+field['match'] = {'integer': 2005}
+filter['should'] = [field]
+print(f' Now we do search with a filter that should only match new added Documents with tags["_id"] = 2005\n'
+      f'=> {filter}')
+filtered_ids, filtered_scores = segment.search(query, json.dumps(filter), 1000)
+assert len(filtered_ids) == 1
+assert len(filtered_scores) == 1
+assert set(filtered_ids) == {2005}
+print(f' RESULT {filtered_ids}')
+
 
 filter = {}
 field1 = {}
 field1['key'] = 'hello'
 field1['match'] = {'keyword': 'world'}
 field2 = {}
-field2['key'] = 'inner_float'
-field2['match'] = {'integer': 2005}
-filter['should'] = [field1, field2]
-print(f' filtered_ids {len(filtered_ids)}')
+inner_field1 = {}
+inner_field1['key'] = '_id'
+inner_field1['match'] = {'integer': 2005}
+inner_field2 = {}
+inner_field2['key'] = '_id'
+inner_field2['match'] = {'integer': 2006}
+field2['should'] = [inner_field1, inner_field2]
+filter['must'] = [field1, field2]
+print(f' Now we do search with a filter that should only match new added Documents with tags["_id"] = 2005 or 2006 and tags["hello"] == "world"\n'
+      f'=> {filter}')
+
 filtered_ids, filtered_scores = segment.search(query, json.dumps(filter), 1000)
-print(f' len {len(filtered_ids)}')
 assert len(filtered_ids) == 1
 assert len(filtered_scores) == 1
-assert filtered_ids[0] == 2005
+assert set(filtered_ids) == {2006}
+print(f' RESULT {filtered_ids}')
 ```
 
 Limitations for Jina.

@@ -1,17 +1,20 @@
-#[path = "./jina.rs"]
-mod jina;
+#[path = "./jina_proto.rs"]
+mod jina_proto;
 
 use super::qdrant_types::{PyPayloadType, PySegmentConfig};
 use crate::qdrant_types::PySegment;
 
 use pyo3::prelude::*;
 use pyo3::PyErr;
+use pyo3::types::PyBytes;
 use pyo3::exceptions::PyException;
 use segment::types::{PointIdType, VectorElementType, ScoredPoint, ScoreType, PayloadKeyType, TheMap, PayloadType};
 use segment::entry::entry_point::{OperationResult, SegmentEntry, OperationError};
 use segment::segment_constructor::segment_constructor::build_segment;
 use prost::Message;
 use prost_types::value;
+use prost_types::Value;
+use prost_types::Struct;
 use std::io::Cursor;
 use std::path::Path;
 use numpy::PyArray1;
@@ -22,10 +25,22 @@ fn handle_inner_result<T> (result: OperationResult<T>) -> PyResult<T> {
     match result {
         Err(error) => {
             match error {
-                OperationError::WrongVector {expected_dim, received_dim} => Err(PyErr::new::<PyException, _>(format!("Wrong vector, expected_dim {} is different from received_dim {}", expected_dim, received_dim))),
-                OperationError::PointIdError {missed_point_id} => Err(PyErr::new::<PyException, _>(format!("Wrong point id, Missed id {}", missed_point_id))),
-                OperationError::TypeError {field_name, expected_type} => Err(PyErr::new::<PyException, _>(format!("Type Error, Field {} should be of type {}", field_name, expected_type))),
-                OperationError::ServiceError {description} => Err(PyErr::new::<PyException, _>(format!("Service Error: {}", description))),
+                OperationError::WrongVector {expected_dim, received_dim} =>
+                    Err(PyErr::new::<PyException, _>(
+                        format!("Wrong vector. Expected_dim {} is different from received_dim {}",
+                                expected_dim, received_dim))),
+                OperationError::PointIdError {missed_point_id} =>
+                    Err(PyErr::new::<PyException, _>(
+                        format!("Wrong point id. Missed id {}",
+                                missed_point_id))),
+                OperationError::TypeError {field_name, expected_type} =>
+                    Err(PyErr::new::<PyException, _>(
+                        format!("Type Error. Field {} should be of type {}",
+                                field_name, expected_type))),
+                OperationError::ServiceError {description} =>
+                    Err(PyErr::new::<PyException, _>(
+                        format!("Service Error: {}",
+                                description))),
             }
         },
         Ok(inner_result) => Ok(inner_result)
@@ -65,17 +80,24 @@ impl PySegment {
     }
 
     pub fn set_full_payload_document(&mut self, point_id: PointIdType, payload: Vec<u8>) -> PyResult<bool> {
-        fn _convert_doc_into_payload(doc: &jina::DocumentProto) -> TheMap<PayloadKeyType, PayloadType> {
+        fn _convert_doc_into_payload(doc: &jina_proto::DocumentProto) -> TheMap<PayloadKeyType, PayloadType> {
             let mut payload = TheMap::new();
             payload.insert("id".to_string(), PayloadType::Keyword(vec![doc.id.to_string()]));
-            payload.insert("granularity".to_string(), PayloadType::Integer(vec![doc.granularity.into()]));
+            payload.insert("parent_id".to_string(), PayloadType::Keyword(vec![doc.parent_id.to_string()]));
             payload.insert("mime_type".to_string(), PayloadType::Keyword(vec![doc.mime_type.to_string()]));
             payload.insert("modality".to_string(), PayloadType::Keyword(vec![doc.modality.to_string()]));
+            payload.insert("content_hash".to_string(), PayloadType::Keyword(vec![doc.content_hash.to_string()]));
+            payload.insert("granularity".to_string(), PayloadType::Integer(vec![doc.granularity.into()]));
+            payload.insert("adjacency".to_string(), PayloadType::Integer(vec![doc.adjacency.into()]));
+            payload.insert("siblings".to_string(), PayloadType::Integer(vec![doc.siblings.into()]));
+            payload.insert("offset".to_string(), PayloadType::Integer(vec![doc.offset.into()]));
+            payload.insert("weight".to_string(), PayloadType::Float(vec![doc.weight.into()]));
             match &doc.tags {
                 Some(tags) => {
                     for (k, v) in &tags.fields {
                         match &v.kind {
-                            Some(value::Kind::NumberValue(x)) => payload.insert(k.to_string(), PayloadType::Float(vec![x.clone()])),
+                            // TODO: problem, match only works on integers
+                            Some(value::Kind::NumberValue(x)) => payload.insert(k.to_string(), PayloadType::Integer(vec![x.clone() as i64])),
                             Some(value::Kind::StringValue(x)) => payload.insert(k.to_string(), PayloadType::Keyword(vec![x.to_string()])),
                             _ => None
                         };
@@ -85,8 +107,9 @@ impl PySegment {
             };
             payload
         }
-        let doc = jina::DocumentProto::decode(&mut Cursor::new(payload)).unwrap();
-        let result = self.segment.set_full_payload(PySegment::DEFAULT_OP_NUM, point_id, _convert_doc_into_payload(&doc));
+        let doc = jina_proto::DocumentProto::decode(&mut Cursor::new(payload)).unwrap();
+        let inner_payload = _convert_doc_into_payload(&doc);
+        let result = self.segment.set_full_payload(PySegment::DEFAULT_OP_NUM, point_id, inner_payload);
         handle_inner_result(result)
     }
 
@@ -102,6 +125,90 @@ impl PySegment {
             };
         }
         results
+    }
+
+    fn get_full_payload_as_document(&self, point_id: PointIdType) -> PyObject {
+        //TODO: See how to better pass bytes without getting GIL: move all logic to new object.
+        // Maybe create a PyDocument that wraps the conversion from Bytes and to Bytes and so on
+        fn _get_string_value(value: &PayloadType) -> Option<String>{
+            match value {
+                PayloadType::Keyword(x) => Some(x.iter().map(|y| y.to_string()).collect()),
+                _ => None
+            }
+        }
+
+        fn _get_int_value(value: &PayloadType) -> Option<u32>{
+            match value {
+                PayloadType::Integer(x) => Some(x[0] as u32),
+                _ => None
+            }
+        }
+
+        fn _get_float_value(value: &PayloadType) -> Option<f32>{
+            match value {
+                PayloadType::Float(x) => Some(x[0] as f32),
+                _ => None
+            }
+        }
+
+        let payload = self.segment.payload(point_id).unwrap();
+        let mut document = jina_proto::DocumentProto::default();
+        let mut fields: Option<TheMap<String, Value>> = None;// TheMap::new(); //TheMap::new();
+        for (k, v) in payload {
+            match k.as_str() {
+                "id" => _get_string_value(&v).map(|x| document.id = x).unwrap(),
+                "mime_type" => _get_string_value(&v).map(|x| document.mime_type = x).unwrap(),
+                "modality" => _get_string_value(&v).map(|x| document.modality = x).unwrap(),
+                "parent_id" => _get_string_value(&v).map(|x| document.parent_id = x).unwrap(),
+                "content_hash" => _get_string_value(&v).map(|x| document.content_hash = x).unwrap(),
+                "granularity" => _get_int_value(&v).map(|x| document.granularity = x).unwrap(),
+                "adjacency" => _get_int_value(&v).map(|x| document.adjacency = x).unwrap(),
+                "siblings" => _get_int_value(&v).map(|x| document.siblings = x).unwrap(),
+                "offset" => _get_int_value(&v).map(|x| document.offset = x).unwrap(),
+                "weight" => _get_float_value(&v).map(|x| document.weight = x).unwrap(),
+                "chunks" => (),
+                "matches" => (),
+                "content" => (),
+                "evaluations" => (),
+                "text" => (),
+                "blob" => (),
+                "buffer" => (),
+                "uri" => (),
+                x => {
+                    // set tag values
+                    match v {
+                        PayloadType::Float(y) => {
+                            if let None = fields {
+                                fields = Some(TheMap::new());
+                            }
+                            fields.as_mut().unwrap().insert(x.to_string(),Value{kind: Some(value::Kind::NumberValue(y[0] as f64))});
+                        },
+                        PayloadType::Integer(y) => {
+                            if let None = fields {
+                                fields = Some(TheMap::new());
+                            }
+                            fields.as_mut().unwrap().insert(x.to_string(),Value{kind: Some(value::Kind::NumberValue(y[0] as f64))});
+                        },
+                        PayloadType::Keyword(y) => {
+                            if let None = fields {
+                                fields = Some(TheMap::new());
+                            }
+                            fields.as_mut().unwrap().insert(x.to_string(), Value{kind: Some(value::Kind::StringValue(y[0].to_string()))});
+                            ()
+                        },
+                        _ => ()
+                    }
+                }
+            }
+        }
+        if let Some(f) = fields {
+            document.tags = Some(Struct {fields: f});
+        }
+        let mut buf: Vec<u8> = Vec::with_capacity(document.encoded_len());
+        document.encode(&mut buf).unwrap();
+        let gil = Python::acquire_gil();
+        let py = gil.python();
+        PyBytes::new(py, &buf).into()
     }
 
     pub fn delete(&mut self, point_id: PointIdType) -> PyResult<bool> {
