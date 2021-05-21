@@ -7,12 +7,12 @@ use schemars::_serde_json::Value;
 pub trait PayloadStorage {
 
     fn assign_all_with_value(&mut self, point_id: PointOffsetType, payload: TheMap<PayloadKeyType, serde_json::value::Value>) -> OperationResult<()> {
-        fn _extract_payloads<I>(_payload: I, prefix_key: Option<PayloadKeyType>) -> Vec<(PayloadKeyType, Option<PayloadType>)>
-            where I: Iterator<Item=(PayloadKeyType, serde_json::value::Value)> {
+        fn _extract_payloads<'a, I>(_payload: I, prefix_key: Option<PayloadKeyType>) -> Vec<(PayloadKeyType, Option<PayloadType>)>
+            where I: Iterator<Item=(&'a PayloadKeyType, &'a serde_json::value::Value)> {
             _payload.flat_map(|(k, value)| {
                 let key = match &prefix_key {
-                    None => k,
-                    Some(_k) => _k.to_owned() + "__" + &k,
+                    None => k.to_string(),
+                    Some(_k) => (_k.to_owned() + "__" + k).to_string(),
                 };
                 match value {
                     Value::Bool(x) => vec![(key, Some(PayloadType::Keyword(vec![x.to_string()])))],
@@ -29,14 +29,14 @@ pub trait PayloadStorage {
                     Value::Array(x) => {
                         match &x[0] {
                             Value::Bool(_) => {
-                                let vec = x.into_iter().fold(vec![], |mut data, b| {
+                                let vec = x.iter().fold(vec![], |mut data, b| {
                                     data.push(b.as_bool().unwrap().to_string());
                                     data
                                 });
                                 vec![(key, Some(PayloadType::Keyword(vec)))]
                             },
                             Value::String(_) => {
-                                let vec = x.into_iter().fold(vec![], |mut data, b| {
+                                let vec = x.iter().fold(vec![], |mut data, b| {
                                     data.push(b.as_str().unwrap().to_string());
                                     data
                                 });
@@ -44,13 +44,13 @@ pub trait PayloadStorage {
                             },
                             Value::Number(y) => {
                                 if y.is_f64() {
-                                    let vec = x.into_iter().fold(vec![], |mut data, b| {
+                                    let vec = x.iter().fold(vec![], |mut data, b| {
                                         data.push(b.as_f64().unwrap());
                                         data
                                     });
                                     vec![(key, Some(PayloadType::Float(vec)))]
                                 } else if y.is_i64() {
-                                    let vec = x.into_iter().fold(vec![], |mut data, b| {
+                                    let vec = x.iter().fold(vec![], |mut data, b| {
                                         data.push(b.as_i64().unwrap());
                                         data
                                     });
@@ -63,14 +63,14 @@ pub trait PayloadStorage {
                         }
                     },
                     Value::Object(x) => {
-                        _extract_payloads(x.into_iter(), Some(key))
+                        _extract_payloads(x.iter(), Some(key))
                     },
                     _ => vec![]
                 }
             } ).collect()
         }
         self.drop(point_id)?;
-        let inner_payloads = _extract_payloads(payload.into_iter(), None);
+        let inner_payloads = _extract_payloads(payload.iter(), None);
         for (key, value) in inner_payloads {
             match value {
                 Some(v) => self.assign(point_id, &key, v)?,
