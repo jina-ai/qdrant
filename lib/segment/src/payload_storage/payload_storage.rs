@@ -6,29 +6,71 @@ use schemars::_serde_json::Value;
 /// Trait for payload data storage. Should allow filter checks
 pub trait PayloadStorage {
 
-    fn _extract_payloads<I>(_payload: I, prefix_key: Option<PayloadKeyType>) -> Vec<(PayloadKeyType, Option<PayloadType>)>
-        where I: Iterator<Item=(PayloadKeyType, serde_json::value::Value)> {
-        _payload.flat_map(|(k, value)| {
-            let key = match &prefix_key {
-                None => k,
-                Some(_k) => _k.to_owned() + "__" + &k,
-            };
-            match value {
-                Value::Null => vec![(key, None)],
-                Value::Bool(x) => vec![(key, Some(PayloadType::Keyword(vec![x.to_string()])))],
-                Value::Number(x) => vec![(key, Some(PayloadType::Integer(vec![x.as_i64().unwrap()])))],
-                Value::String(x) => vec![(key, Some(PayloadType::Keyword(vec![x.to_string()])))],
-                Value::Array(_) => vec![],
-                Value::Object(x) => {
-                    _extract_payloads(x.into_iter(), Some(key))
-                }
-            }
-        } ).collect()
-    }
-
     fn assign_all_with_value(&mut self, point_id: PointOffsetType, payload: TheMap<PayloadKeyType, serde_json::value::Value>) -> OperationResult<()> {
+        fn _extract_payloads<I>(_payload: I, prefix_key: Option<PayloadKeyType>) -> Vec<(PayloadKeyType, Option<PayloadType>)>
+            where I: Iterator<Item=(PayloadKeyType, serde_json::value::Value)> {
+            _payload.flat_map(|(k, value)| {
+                let key = match &prefix_key {
+                    None => k,
+                    Some(_k) => _k.to_owned() + "__" + &k,
+                };
+                match value {
+                    Value::Bool(x) => vec![(key, Some(PayloadType::Keyword(vec![x.to_string()])))],
+                    Value::String(x) => vec![(key, Some(PayloadType::Keyword(vec![x.to_string()])))],
+                    Value::Number(x) => {
+                        if x.is_f64() {
+                            vec![(key, Some(PayloadType::Float(vec![x.as_f64().unwrap()])))]
+                        } else if x.is_i64() {
+                            vec![(key, Some(PayloadType::Integer(vec![x.as_i64().unwrap()])))]
+                        } else {
+                            vec![]
+                        }
+                    },
+                    Value::Array(x) => {
+                        match &x[0] {
+                            Value::Bool(_) => {
+                                let vec = x.into_iter().fold(vec![], |mut data, b| {
+                                    data.push(b.as_bool().unwrap().to_string());
+                                    data
+                                });
+                                vec![(key, Some(PayloadType::Keyword(vec)))]
+                            },
+                            Value::String(_) => {
+                                let vec = x.into_iter().fold(vec![], |mut data, b| {
+                                    data.push(b.as_str().unwrap().to_string());
+                                    data
+                                });
+                                vec![(key, Some(PayloadType::Keyword(vec)))]
+                            },
+                            Value::Number(y) => {
+                                if y.is_f64() {
+                                    let vec = x.into_iter().fold(vec![], |mut data, b| {
+                                        data.push(b.as_f64().unwrap());
+                                        data
+                                    });
+                                    vec![(key, Some(PayloadType::Float(vec)))]
+                                } else if y.is_i64() {
+                                    let vec = x.into_iter().fold(vec![], |mut data, b| {
+                                        data.push(b.as_i64().unwrap());
+                                        data
+                                    });
+                                    vec![(key, Some(PayloadType::Integer(vec)))]
+                                } else {
+                                    vec![]
+                                }
+                            },
+                            _ => vec![],
+                        }
+                    },
+                    Value::Object(x) => {
+                        _extract_payloads(x.into_iter(), Some(key))
+                    },
+                    _ => vec![]
+                }
+            } ).collect()
+        }
         self.drop(point_id)?;
-        let inner_payloads = self._extract_payloads(payload.into_iter(), None);
+        let inner_payloads = _extract_payloads(payload.into_iter(), None);
         for (key, value) in inner_payloads {
             match value {
                 Some(v) => self.assign(point_id, &key, v)?,
@@ -77,26 +119,4 @@ pub trait PayloadStorage {
 pub trait ConditionChecker {
     /// Check if point satisfies filter condition
     fn check(&self, point_id: PointOffsetType, query: &Filter) -> bool;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // fn test_extract_payload_from_serde_json() {
-    //     let data = r#"
-    //     {
-    //         "name": "John Doe",
-    //         "age": 43,
-    //         "metadata": {
-    //             "height": 50,
-    //             "width": 60
-    //         }
-    //     }"#;
-    //
-    //     let v: Value = serde_json::from_str(data)?;
-    //     let a = Map
-    //     let payload = PayloadStorage::_extract_payloads(v);
-    // }
-
 }
