@@ -53,6 +53,12 @@ impl From<Error> for OperationError {
     }
 }
 
+impl From<serde_json::Error> for OperationError {
+    fn from(err: serde_json::Error) -> Self {
+        OperationError::ServiceError { description: format!("Json error: {}", err) }
+    }
+}
+
 pub type OperationResult<T> = result::Result<T, OperationError>;
 
 
@@ -75,6 +81,8 @@ pub trait SegmentEntry {
     fn delete_point(&mut self, op_num: SeqNumberType, point_id: PointIdType) -> OperationResult<bool>;
 
     fn set_full_payload(&mut self, op_num: SeqNumberType, point_id: PointIdType, full_payload: TheMap<PayloadKeyType, PayloadType>) -> OperationResult<bool>;
+
+    fn set_full_payload_with_json(&mut self, op_num: SeqNumberType, point_id: PointIdType, full_payload: &str) -> OperationResult<bool>;
 
     fn set_payload(&mut self, op_num: SeqNumberType, point_id: PointIdType, key: &PayloadKeyType, payload: PayloadType) -> OperationResult<bool>;
 

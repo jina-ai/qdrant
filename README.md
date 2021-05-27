@@ -1,4 +1,3 @@
-
 <p align="center">
   <img height="100" src="https://github.com/qdrant/qdrant/blob/master/docs/logo.svg?raw=true" alt="Qdrant">
 </p>
@@ -168,7 +167,27 @@ Now Qdrant should be accessible at [localhost:6333](http://localhost:6333/)
 * Subscribe to our [Newsletters](https://tech.us1.list-manage.com/subscribe/post?u=69617d79374ac6280dd2230b2&amp;id=acb2b876fc)
 * Write us an email [info@qdrant.tech](mailto:info@qdrant.tech)
 
+
+## Contributors ✨
+
+Thanks to the people who contributed to Qdrant:
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tr>
+    <td align="center"><a href="https://t.me/neural_network_engineering"><img src="https://avatars.githubusercontent.com/u/1935623?v=4?s=50" width="50px;" alt=""/><br /><sub><b>Andrey Vasnetsov</b></sub></a><br /><a href="https://github.com/qdrant/qdrant/commits?author=generall" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/azayarni"><img src="https://avatars.githubusercontent.com/u/926368?v=4?s=50" width="50px;" alt=""/><br /><sub><b>Andre Zayarni</b></sub></a><br /><a href="https://github.com/qdrant/qdrant/commits?author=azayarni" title="Documentation">📖</a></td>
+    <td align="center"><a href="http://www.linkedin.com/in/joanfontanalsmartinez/"><img src="https://avatars.githubusercontent.com/u/19825685?v=4?s=50" width="50px;" alt=""/><br /><sub><b>Joan Fontanals</b></sub></a><br /><a href="https://github.com/qdrant/qdrant/commits?author=JoanFM" title="Code">💻</a></td>
+  </tr>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
 ## License
 
 Qdrant is licensed under the Apache License, Version 2.0. View a copy of the [License file](LICENSE).
-
