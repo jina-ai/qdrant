@@ -41,7 +41,13 @@ From this folder, run:
 There may be some differences when running from macOS
 
 ```shell
-maturin build --no-sdist
+maturin build --release --cargo-extra-args="-j 4"
+pip install target/wheels/qdrant_segment_py*cp37*
+```
+
+In the case of macOS, try to run:
+```shell
+maturin build --release --cargo-extra-args="-j 4 --target x86_64-apple-darwin"
 pip install target/wheels/qdrant_segment_py*cp37*
 ```
 
