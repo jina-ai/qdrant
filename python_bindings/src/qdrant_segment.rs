@@ -1,7 +1,7 @@
 #[path = "./jina_proto.rs"]
 mod jina_proto;
 
-use super::qdrant_types::{PyPayloadType, PySegmentConfig, PySearchParams};
+use super::qdrant_types::{PySegmentConfig, PySearchParams};
 use crate::qdrant_types::PySegment;
 
 use pyo3::prelude::*;
@@ -19,7 +19,6 @@ use std::io::Cursor;
 use std::path::Path;
 use numpy::PyArray1;
 use serde_json;
-
 
 fn handle_inner_result<T> (result: OperationResult<T>) -> PyResult<T> {
     match result {
@@ -62,20 +61,8 @@ impl PySegment {
         handle_inner_result(result)
     }
 
-    pub fn set_full_payload(&mut self, point_id: PointIdType, payload: String) -> PyResult<bool> {
-        let pypayloadtype: TheMap<PayloadKeyType, PyPayloadType> = serde_json::from_str(&payload).unwrap();
-        // need to correct the points where a collection is expected and not a single value
-        let inner_payload = pypayloadtype.into_iter().map(|(k, v)| {
-            match v {
-                PyPayloadType::Keyword(x) => (k, PayloadType::Keyword(vec![x])),
-                PyPayloadType::Integer(x) => (k, PayloadType::Integer(vec![x])),
-                PyPayloadType::Float(x) => (k, PayloadType::Float(vec![x])),
-                PyPayloadType::KeywordVec(x) => (k, PayloadType::Keyword(x)),
-                PyPayloadType::FloatVec(x) => (k, PayloadType::Float(x)),
-                PyPayloadType::IntegerVec(x) => (k, PayloadType::Integer(x))
-            }
-        }).rev().collect();
-        let result = self.segment.set_full_payload(PySegment::DEFAULT_OP_NUM, point_id, inner_payload);
+    pub fn set_full_payload(&mut self, point_id: PointIdType, payload: &str) -> PyResult<bool> {
+        let result = self.segment.set_full_payload_with_json(PySegment::DEFAULT_OP_NUM, point_id, payload);
         handle_inner_result(result)
     }
 
