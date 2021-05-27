@@ -2,9 +2,7 @@ use pyo3::prelude::*;
 use std::path::Path;
 use std::io::BufReader;
 use std::fs::File;
-use serde::{Deserialize, Serialize};
-use schemars::{JsonSchema};
-use segment::types::{Distance, Indexes, PayloadIndexType, StorageType, SegmentConfig, IntPayloadType, FloatPayloadType, SearchParams};
+use segment::types::{Distance, Indexes, PayloadIndexType, StorageType, SegmentConfig, SearchParams};
 use segment::segment::Segment;
 
 #[pyclass(unsendable, module="qdrant_segment_py", dict)]
@@ -148,18 +146,6 @@ impl PySegmentConfig {
             } }
         }
     }
-}
-
-#[derive(Debug, Deserialize, Serialize, JsonSchema, Clone, FromPyObject)]
-#[serde(rename_all = "snake_case")]
-#[serde(untagged)]
-pub enum PyPayloadType {
-    Keyword(String),
-    Integer(IntPayloadType),
-    Float(FloatPayloadType),
-    KeywordVec(Vec<String>),
-    IntegerVec(Vec<IntPayloadType>),
-    FloatVec(Vec<FloatPayloadType>)
 }
 
 #[pyclass(unsendable, module="qdrant_segment_py", dict)]
