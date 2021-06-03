@@ -8,7 +8,8 @@ from qdrant_segment_py import \
     PyDistanceType, \
     PyStorageType, \
     PySegmentConfig, \
-    PySegment
+    PySegment, \
+    PyHnswConfig
 
 TOP_K = 10
 GRANULARITY_4_IDX_FILTER = 10

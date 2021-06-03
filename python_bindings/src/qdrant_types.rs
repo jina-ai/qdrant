@@ -2,8 +2,28 @@ use pyo3::prelude::*;
 use std::path::Path;
 use std::io::BufReader;
 use std::fs::File;
-use segment::types::{Distance, Indexes, PayloadIndexType, StorageType, SegmentConfig, SearchParams};
+use segment::types::{Distance, Indexes, PayloadIndexType, StorageType, SegmentConfig, SearchParams, HnswConfig};
 use segment::segment::Segment;
+
+
+#[pyclass(unsendable, module="qdrant_segment_py", dict)]
+pub struct PyHnswConfig {
+    config: HnswConfig
+}
+
+#[pymethods]
+impl PyHnswConfig {
+    #[new]
+    fn new(m: usize, ef_construct: usize, full_scan_threshold: usize) -> Self {
+        PyHnswConfig { config: HnswConfig {
+                m,
+                ef_construct,
+                full_scan_threshold
+            }
+        }
+    }
+}
+
 
 #[pyclass(unsendable, module="qdrant_segment_py", dict)]
 pub struct PyVectorIndexType {
@@ -13,10 +33,18 @@ pub struct PyVectorIndexType {
 #[pymethods]
 impl PyVectorIndexType {
     #[new]
-    fn new(index_type: usize, m: Option<usize>, ef: Option<usize>) -> Self {
+    fn new(index_type: usize, hnsw_config: Option<&PyHnswConfig>) -> Self {
         let ind = match index_type {
             0 => Some(Indexes::Plain {}),
-            1 => Some(Indexes::Hnsw { m: m.unwrap(), ef_construct: ef.unwrap()}),
+            1 => {
+                match hnsw_config {
+                    Some(pyconfig) => Some(Indexes::Hnsw(pyconfig.config)),
+                    None => {
+                        println!("Provide a valid configuration for HNSW index type");
+                        None
+                    }
+                }
+            },
             x => {
                 println!("Invalid vector index type {}", x);
                 None
@@ -104,8 +132,12 @@ pub struct PySearchParams {
 impl PySearchParams {
     //TODO: LEARN HOW TO ALSO ENABLE READING FROM TEXT
     #[new]
-    fn new(ef: usize) -> Self {
-        PySearchParams { params: SearchParams::Hnsw {ef}}
+    fn new(hnsw_ef: Option<usize>) -> Self {
+        PySearchParams {
+            params: SearchParams {
+                hnsw_ef
+            }
+        }
     }
 }
 
