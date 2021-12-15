@@ -1,67 +1,78 @@
-use crate::payload_storage::payload_storage::{ConditionChecker};
-use crate::types::{Filter, PayloadKeyType, PayloadType, Condition, TheMap, PointOffsetType};
+use crate::id_tracker::IdTracker;
+use crate::payload_storage::condition_checker::{
+    match_geo, match_geo_radius, match_payload, match_range,
+};
 use crate::payload_storage::simple_payload_storage::SimplePayloadStorage;
-use std::sync::Arc;
+use crate::payload_storage::ConditionChecker;
+use crate::types::{Condition, Filter, PayloadKeyType, PayloadType, PointOffsetType, TheMap};
 use atomic_refcell::AtomicRefCell;
-use crate::id_mapper::id_mapper::IdMapper;
-use crate::payload_storage::condition_checker::{match_payload, match_range, match_geo_radius, match_geo};
-
+use std::sync::Arc;
 
 fn check_condition<F>(checker: &F, condition: &Condition) -> bool
-    where F: Fn(&Condition) -> bool {
+where
+    F: Fn(&Condition) -> bool,
+{
     match condition {
         Condition::Filter(filter) => check_filter(checker, filter),
-        _ => checker(condition)
+        _ => checker(condition),
     }
 }
 
 fn check_filter<F>(checker: &F, filter: &Filter) -> bool
-    where F: Fn(&Condition) -> bool {
-    return check_should(checker, &filter.should)
+where
+    F: Fn(&Condition) -> bool,
+{
+    check_should(checker, &filter.should)
         && check_must(checker, &filter.must)
-        && check_must_not(checker, &filter.must_not);
+        && check_must_not(checker, &filter.must_not)
 }
 
 fn check_should<F>(checker: &F, should: &Option<Vec<Condition>>) -> bool
-    where F: Fn(&Condition) -> bool {
+where
+    F: Fn(&Condition) -> bool,
+{
     let check = |x| check_condition(checker, x);
     match should {
         None => true,
-        Some(conditions) => conditions.iter().any(check)
+        Some(conditions) => conditions.iter().any(check),
     }
 }
 
-
 fn check_must<F>(checker: &F, must: &Option<Vec<Condition>>) -> bool
-    where F: Fn(&Condition) -> bool {
+where
+    F: Fn(&Condition) -> bool,
+{
     let check = |x| check_condition(checker, x);
     match must {
         None => true,
-        Some(conditions) => conditions.iter().all(check)
+        Some(conditions) => conditions.iter().all(check),
     }
 }
 
 fn check_must_not<F>(checker: &F, must: &Option<Vec<Condition>>) -> bool
-    where F: Fn(&Condition) -> bool {
+where
+    F: Fn(&Condition) -> bool,
+{
     let check = |x| !check_condition(checker, x);
     match must {
         None => true,
-        Some(conditions) => conditions.iter().all(check)
+        Some(conditions) => conditions.iter().all(check),
     }
 }
 
-
 pub struct SimpleConditionChecker {
     payload_storage: Arc<AtomicRefCell<SimplePayloadStorage>>,
-    id_mapper: Arc<AtomicRefCell<dyn IdMapper>>,
+    id_tracker: Arc<AtomicRefCell<dyn IdTracker>>,
 }
 
 impl SimpleConditionChecker {
-    pub fn new(payload_storage: Arc<AtomicRefCell<SimplePayloadStorage>>,
-               id_mapper: Arc<AtomicRefCell<dyn IdMapper>>) -> Self {
+    pub fn new(
+        payload_storage: Arc<AtomicRefCell<SimplePayloadStorage>>,
+        id_tracker: Arc<AtomicRefCell<dyn IdTracker>>,
+    ) -> Self {
         SimpleConditionChecker {
             payload_storage,
-            id_mapper,
+            id_tracker,
         }
     }
 }
@@ -69,8 +80,7 @@ impl SimpleConditionChecker {
 // Uncomment when stabilized
 // const EMPTY_PAYLOAD: TheMap<PayloadKeyType, PayloadType> = TheMap::new();
 
-impl ConditionChecker for SimpleConditionChecker
-{
+impl ConditionChecker for SimpleConditionChecker {
     fn check(&self, point_id: PointOffsetType, query: &Filter) -> bool {
         let empty_map: TheMap<PayloadKeyType, PayloadType> = TheMap::new();
 
@@ -79,30 +89,53 @@ impl ConditionChecker for SimpleConditionChecker
 
         let payload = match payload_ptr {
             None => &empty_map,
-            Some(x) => x
+            Some(x) => x,
         };
 
         let checker = |condition: &Condition| {
             match condition {
                 Condition::Field(field_condition) => {
-                    payload.get(&field_condition.key).map(|p| {
-                        let mut res = false;
-                        // ToDo: Convert onto iterator over checkers, so it would be impossible to forget a condition
-                        res = res || field_condition.r#match.as_ref().map(|condition| match_payload(p, condition)).unwrap_or(false);
-                        res = res || field_condition.range.as_ref().map(|condition| match_range(p, condition)).unwrap_or(false);
-                        res = res || field_condition.geo_radius.as_ref().map(|condition| match_geo_radius(p, condition)).unwrap_or(false);
-                        res = res || field_condition.geo_bounding_box.as_ref().map(|condition| match_geo(p, condition)).unwrap_or(false);
-                        res
-                    }).unwrap_or(false)
+                    payload
+                        .get(&field_condition.key)
+                        .map(|p| {
+                            let mut res = false;
+                            // ToDo: Convert onto iterator over checkers, so it would be impossible to forget a condition
+                            res = res
+                                || field_condition
+                                    .r#match
+                                    .as_ref()
+                                    .map(|condition| match_payload(p, condition))
+                                    .unwrap_or(false);
+                            res = res
+                                || field_condition
+                                    .range
+                                    .as_ref()
+                                    .map(|condition| match_range(p, condition))
+                                    .unwrap_or(false);
+                            res = res
+                                || field_condition
+                                    .geo_radius
+                                    .as_ref()
+                                    .map(|condition| match_geo_radius(p, condition))
+                                    .unwrap_or(false);
+                            res = res
+                                || field_condition
+                                    .geo_bounding_box
+                                    .as_ref()
+                                    .map(|condition| match_geo(p, condition))
+                                    .unwrap_or(false);
+                            res
+                        })
+                        .unwrap_or(false)
                 }
                 Condition::HasId(has_id) => {
-                    let external_id = match self.id_mapper.borrow().external_id(point_id) {
+                    let external_id = match self.id_tracker.borrow().external_id(point_id) {
                         None => return false,
                         Some(id) => id,
                     };
                     has_id.has_id.contains(&external_id)
                 }
-                Condition::Filter(_) => panic!("Unexpected branching!")
+                Condition::Filter(_) => panic!("Unexpected branching!"),
             }
         };
 
@@ -113,39 +146,51 @@ impl ConditionChecker for SimpleConditionChecker
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{PayloadType, FieldCondition, Match, GeoBoundingBox, Range};
+    use crate::id_tracker::simple_id_tracker::SimpleIdTracker;
+    use crate::payload_storage::PayloadStorage;
     use crate::types::GeoPoint;
+    use crate::types::{FieldCondition, GeoBoundingBox, Match, PayloadType, Range};
     use std::collections::HashSet;
     use tempdir::TempDir;
-    use crate::payload_storage::payload_storage::PayloadStorage;
-    use crate::id_mapper::simple_id_mapper::SimpleIdMapper;
 
     #[test]
     fn test_condition_checker() {
         let dir = TempDir::new("payload_dir").unwrap();
-        let dir_id_mapper = TempDir::new("id_mapper_dir").unwrap();
+        let dir_id_tracker = TempDir::new("id_tracker_dir").unwrap();
 
         let payload: TheMap<PayloadKeyType, PayloadType> = [
-            ("location".to_owned(), PayloadType::Geo(vec![GeoPoint { lon: 13.404954, lat: 52.520008 }])),
+            (
+                "location".to_owned(),
+                PayloadType::Geo(vec![GeoPoint {
+                    lon: 13.404954,
+                    lat: 52.520008,
+                }]),
+            ),
             ("price".to_owned(), PayloadType::Float(vec![499.90])),
             ("amount".to_owned(), PayloadType::Integer(vec![10])),
             ("rating".to_owned(), PayloadType::Integer(vec![3, 7, 9, 9])),
-            ("color".to_owned(), PayloadType::Keyword(vec!["red".to_owned()])),
+            (
+                "color".to_owned(),
+                PayloadType::Keyword(vec!["red".to_owned()]),
+            ),
             ("has_delivery".to_owned(), PayloadType::Integer(vec![1])),
-        ].iter().cloned().collect();
+        ]
+        .iter()
+        .cloned()
+        .collect();
 
         let mut payload_storage = SimplePayloadStorage::open(dir.path()).unwrap();
-        let mut id_mapper = SimpleIdMapper::open(dir_id_mapper.path()).unwrap();
+        let mut id_tracker = SimpleIdTracker::open(dir_id_tracker.path()).unwrap();
 
-        id_mapper.set_link(0, 0).unwrap();
-        id_mapper.set_link(1, 1).unwrap();
-        id_mapper.set_link(2, 2).unwrap();
-        id_mapper.set_link(10, 10).unwrap();
+        id_tracker.set_link(0, 0).unwrap();
+        id_tracker.set_link(1, 1).unwrap();
+        id_tracker.set_link(2, 2).unwrap();
+        id_tracker.set_link(10, 10).unwrap();
         payload_storage.assign_all(0, payload).unwrap();
 
         let payload_checker = SimpleConditionChecker::new(
             Arc::new(AtomicRefCell::new(payload_storage)),
-            Arc::new(AtomicRefCell::new(id_mapper)),
+            Arc::new(AtomicRefCell::new(id_tracker)),
         );
 
         let match_red = Condition::Field(FieldCondition {
@@ -186,8 +231,14 @@ mod tests {
             r#match: None,
             range: None,
             geo_bounding_box: Some(GeoBoundingBox {
-                top_left: GeoPoint { lon: 13.08835, lat: 52.67551 },
-                bottom_right: GeoPoint { lon: 13.76116, lat: 52.33826 },
+                top_left: GeoPoint {
+                    lon: 13.08835,
+                    lat: 52.67551,
+                },
+                bottom_right: GeoPoint {
+                    lon: 13.76116,
+                    lat: 52.33826,
+                },
             }),
             geo_radius: None,
         });
@@ -197,8 +248,14 @@ mod tests {
             r#match: None,
             range: None,
             geo_bounding_box: Some(GeoBoundingBox {
-                top_left: GeoPoint { lon: 37.0366, lat: 56.1859 },
-                bottom_right: GeoPoint { lon: 38.2532, lat: 55.317 },
+                top_left: GeoPoint {
+                    lon: 37.0366,
+                    lat: 56.1859,
+                },
+                bottom_right: GeoPoint {
+                    lon: 38.2532,
+                    lat: 55.317,
+                },
             }),
             geo_radius: None,
         });
@@ -253,7 +310,7 @@ mod tests {
 
         let query = Filter {
             should: Some(vec![match_red.clone(), match_blue.clone()]),
-            must: Some(vec![with_delivery.clone(), in_moscow.clone()]),
+            must: Some(vec![with_delivery, in_moscow.clone()]),
             must_not: None,
         };
         assert!(!payload_checker.check(0, &query));
@@ -280,12 +337,12 @@ mod tests {
             should: Some(vec![
                 Condition::Filter(Filter {
                     should: None,
-                    must: Some(vec![match_blue.clone(), in_moscow.clone()]),
+                    must: Some(vec![match_blue, in_moscow]),
                     must_not: None,
                 }),
                 Condition::Filter(Filter {
                     should: None,
-                    must: Some(vec![match_red.clone(), in_berlin.clone()]),
+                    must: Some(vec![match_red, in_berlin]),
                     must_not: None,
                 }),
             ]),
@@ -294,17 +351,14 @@ mod tests {
         };
         assert!(payload_checker.check(0, &query));
 
-
         let query = Filter {
             should: None,
             must: None,
-            must_not: Some(vec![with_bad_rating.clone()]),
+            must_not: Some(vec![with_bad_rating]),
         };
         assert!(!payload_checker.check(0, &query));
 
-
         let ids: HashSet<_> = vec![1, 2, 3].into_iter().collect();
-
 
         let query = Filter {
             should: None,
@@ -314,7 +368,6 @@ mod tests {
         assert!(!payload_checker.check(2, &query));
 
         let ids: HashSet<_> = vec![1, 2, 3].into_iter().collect();
-
 
         let query = Filter {
             should: None,

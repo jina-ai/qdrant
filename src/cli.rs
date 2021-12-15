@@ -1,9 +1,10 @@
 #[macro_use]
 extern crate log;
 
+mod common;
 mod settings;
 
-
+use crate::common::helpers::create_search_runtime;
 use storage::content_manager::toc::TableOfContent;
 
 fn main() {
@@ -11,9 +12,13 @@ fn main() {
     std::env::set_var("RUST_LOG", settings.log_level);
     env_logger::init();
 
-    let toc = TableOfContent::new(&settings.storage);
+    let runtime = create_search_runtime(settings.storage.performance.max_search_threads).unwrap();
+    let runtime_handle = runtime.handle().clone();
+    let toc = TableOfContent::new(&settings.storage, runtime);
 
-    for collection in toc.all_collections() {
-        info!("loaded collection: {}", collection);
-    }
+    runtime_handle.block_on(async {
+        for collection in toc.all_collections().await {
+            info!("loaded collection: {}", collection);
+        }
+    });
 }

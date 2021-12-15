@@ -38,6 +38,9 @@ storage:
 
     # Minimum interval between forced flushes.
     flush_interval_sec: 10
+    
+    # Max number of threads, which can be used for optimization. If 0 - `NUM_CPU - 1` will be used
+    max_optimization_threads: 0
 
   # Default parameters of HNSW Index. Could be override for each collection individually
   hnsw_index:
@@ -58,5 +61,8 @@ service:
   # Host to bind the service on
   host: 0.0.0.0
 
-  # Port to bind the service on
+  # HTTP port to bind the service on
   port: 6333
+
+  # GRPC port to bind the service on
+  grpc_port: 6334

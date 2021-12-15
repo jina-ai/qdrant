@@ -31,6 +31,87 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "trean",
+      "name": "trean",
+      "avatar_url": "https://avatars.githubusercontent.com/u/7085263?v=4",
+      "profile": "https://github.com/trean",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "kgrech",
+      "name": "Konstantin",
+      "avatar_url": "https://avatars.githubusercontent.com/u/9020133?v=4",
+      "profile": "https://github.com/kgrech",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "kekonen",
+      "name": "Daniil Naumetc",
+      "avatar_url": "https://avatars.githubusercontent.com/u/11177808?v=4",
+      "profile": "https://github.com/kekonen",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "vearutop",
+      "name": "Viacheslav Poturaev",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1381436?v=4",
+      "profile": "https://dev.to/vearutop",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "galibey",
+      "name": "Alexander Galibey",
+      "avatar_url": "https://avatars.githubusercontent.com/u/48586936?v=4",
+      "profile": "https://github.com/galibey",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "HaiCheViet",
+      "name": "HaiCheViet",
+      "avatar_url": "https://avatars.githubusercontent.com/u/37202591?v=4",
+      "profile": "https://github.com/HaiCheViet",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "tranzystorek-io",
+      "name": "Marcin Puc",
+      "avatar_url": "https://avatars.githubusercontent.com/u/5671049?v=4",
+      "profile": "https://tranzystorek-io.github.io/",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "anveq",
+      "name": "Anton V.",
+      "avatar_url": "https://avatars.githubusercontent.com/u/94402218?v=4",
+      "profile": "https://github.com/anveq",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "agourlay",
+      "name": "Arnaud Gourlay",
+      "avatar_url": "https://avatars.githubusercontent.com/u/606963?v=4",
+      "profile": "http://agourlay.github.io",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,

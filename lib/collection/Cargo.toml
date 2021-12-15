@@ -1,8 +1,8 @@
 [package]
 name = "collection"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Andrey Vasnetsov <vasnetsov93@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -24,16 +24,18 @@ rmp-serde = "~0.14"
 wal = { git = "https://github.com/generall/wal.git" }
 ordered-float = "1.0"
 
-tokio = {version = "~0.3", features = ["rt-multi-thread", "time"]}
+tokio = {version = "~1.7", features = ["full"]}
 futures = "0.3.5"
-crossbeam-channel = "0.4.3"
 atomicwrites = "0.2.5"
 log = "0.4"
 env_logger = "0.7.1"
 merge = "0.1.0"
+async-trait = "0.1.50"
+async-channel = "1.6.1"
 
 segment = {path = "../segment"}
 
 itertools = "0.9"
 indicatif = "0.15.0"
 schemars = "0.8.0"
+num_cpus = "1.13.0"

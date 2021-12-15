@@ -1,88 +1,87 @@
 #[macro_use]
 extern crate log;
 
+#[cfg(feature = "web")]
+mod actix;
+pub mod common;
 mod settings;
+#[cfg(feature = "grpc")]
+mod tonic;
 
-mod common;
-mod api;
-
-use actix_web::middleware::Logger;
-
-use actix_web::{get, web, App, HttpServer, error, HttpRequest, HttpResponse, Responder};
-
-use env_logger;
+use std::io::Error;
+use std::sync::Arc;
+use std::thread;
+use std::thread::JoinHandle;
 use storage::content_manager::toc::TableOfContent;
-use crate::api::collections_api::{get_collections, update_collections, get_collection};
-use crate::api::update_api::update_points;
-use crate::api::retrieve_api::{get_vectors, get_point};
-use crate::api::search_api::search_points;
-use serde::{Deserialize, Serialize};
-use crate::api::recommend_api::recommend_points;
 
-#[derive(Serialize, Deserialize)]
-pub struct VersionInfo {
-    pub title: String,
-    pub version: String
-}
+use crate::common::helpers::create_search_runtime;
+use crate::settings::Settings;
 
-fn json_error_handler(err: error::JsonPayloadError, _req: &HttpRequest) -> error::Error {
-    use actix_web::error::JsonPayloadError;
-
-    let detail = err.to_string();
-    let resp = match &err {
-        JsonPayloadError::ContentType => {
-            HttpResponse::UnsupportedMediaType().body(detail)
-        }
-        JsonPayloadError::Deserialize(json_err) if json_err.is_data() => {
-            HttpResponse::UnprocessableEntity().body(detail)
-        }
-        _ => HttpResponse::BadRequest().body(detail),
-    };
-    error::InternalError::from_response(err, resp).into()
-}
-
-#[get("/")]
-pub async fn index() -> impl Responder {
-    HttpResponse::Ok().json(VersionInfo {
-        title: "qdrant - vector search engine".to_string(),
-        version: option_env!("CARGO_PKG_VERSION").unwrap().to_string()
-    })
-}
-
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    let settings = settings::Settings::new().expect("Can't read config.");
-    std::env::set_var("RUST_LOG", settings.log_level);
+fn main() -> std::io::Result<()> {
+    let settings = Settings::new().expect("Can't read config.");
+    std::env::set_var("RUST_LOG", &settings.log_level);
     env_logger::init();
 
-    let toc = TableOfContent::new(&settings.storage);
+    // Create and own search runtime out of the scope of async context to ensure correct
+    // destruction of it
+    let runtime = create_search_runtime(settings.storage.performance.max_search_threads)
+        .expect("Can't create runtime.");
 
-    for collection in toc.all_collections() {
-        info!("loaded collection: {}", collection);
+    let runtime_handle = runtime.handle().clone();
+
+    let toc = TableOfContent::new(&settings.storage, runtime);
+    runtime_handle.block_on(async {
+        for collection in toc.all_collections().await {
+            info!("loaded collection: {}", collection);
+        }
+    });
+
+    let toc_arc = Arc::new(toc);
+
+    let mut handles: Vec<JoinHandle<Result<(), Error>>> = vec![];
+
+    #[cfg(feature = "web")]
+    {
+        let toc_arc = toc_arc.clone();
+        let settings = settings.clone();
+        let handle = thread::spawn(move || actix::init(toc_arc, settings));
+        handles.push(handle);
+    }
+    #[cfg(feature = "grpc")]
+    {
+        let toc_arc = toc_arc.clone();
+        let settings = settings.clone();
+        let handle = thread::spawn(move || tonic::init(toc_arc, settings));
+        handles.push(handle);
     }
 
-    let toc_data = web::Data::new(toc);
+    #[cfg(feature = "service_debug")]
+    {
+        use parking_lot::deadlock;
+        use std::time::Duration;
 
-    HttpServer::new(move || {
-        let app = App::new()
-            .wrap(Logger::default())
-            .app_data(toc_data.clone())
-            .data(web::JsonConfig::default().limit(33554432).error_handler(json_error_handler)) // 32 Mb
-            .service(index)
-            .service(get_collections)
-            .service(update_collections)
-            .service(get_collection)
-            .service(update_points)
-            .service(get_point)
-            .service(get_vectors)
-            .service(search_points)
-            .service(recommend_points)
-            ;
+        thread::spawn(move || loop {
+            thread::sleep(Duration::from_secs(10));
+            let deadlocks = deadlock::check_deadlock();
+            if deadlocks.is_empty() {
+                continue;
+            }
 
-        app
-    })
-        // .workers(1)
-        .bind(format!("{}:{}", settings.service.host, settings.service.port))?
-        .run()
-        .await
+            println!("{} deadlocks detected", deadlocks.len());
+            for (i, threads) in deadlocks.iter().enumerate() {
+                println!("Deadlock #{}", i);
+                for t in threads {
+                    println!("Thread Id {:#?}", t.thread_id());
+                    println!("{:#?}", t.backtrace());
+                }
+            }
+        });
+    }
+
+    for handle in handles.into_iter() {
+        handle.join().expect("Couldn't join on the thread")?;
+    }
+    drop(toc_arc);
+    drop(settings);
+    Ok(())
 }

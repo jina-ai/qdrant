@@ -1,15 +1,15 @@
-FROM rust:1.51 as builder
+FROM rust:1.56.1 as builder
 
 COPY . ./qdrant
 WORKDIR ./qdrant
 
-ENV OPENBLAS_TARGET=CORE2
-RUN apt-get update ; apt-get install -y clang libopenblas-dev libgfortran-8-dev gfortran
+ENV OPENBLAS_DYNAMIC_ARCH="1"
+RUN apt-get update ; apt-get install -y clang libopenblas-dev libgfortran-10-dev gfortran
 
 # Build actual target here
 RUN cargo build --release --bin qdrant
 
-FROM debian:buster-slim
+FROM debian:bullseye-slim
 ARG APP=/qdrant
 
 RUN apt-get update \
@@ -17,6 +17,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 6333
+EXPOSE 6334
 
 ENV TZ=Etc/UTC \
     RUN_MODE=production \

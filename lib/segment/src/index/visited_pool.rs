@@ -1,3 +1,5 @@
+//! Structures for fast and tread-safe way to check if some points were visited or not
+
 use crate::types::PointOffsetType;
 use parking_lot::RwLock;
 
@@ -7,12 +9,15 @@ use parking_lot::RwLock;
 /// Implemented in order to limit memory leak
 const POOL_KEEP_LIMIT: usize = 16;
 
+/// Visited list reuses same memory to keep track of visited points ids among multiple consequent queries
+///
+/// It stores the sequence number of last processed operation next to the point ID, which allows to avoid memory allocation
+/// and re-use same counter for multiple queries.
 #[derive(Debug)]
 pub struct VisitedList {
     current_iter: usize,
     visit_counters: Vec<usize>,
 }
-
 
 impl VisitedList {
     pub fn new(num_points: usize) -> Self {
@@ -47,17 +52,18 @@ impl VisitedList {
     }
 }
 
-
+/// Keeps a list of `VisitedList` which could be requested and released from multiple threads
+///
+/// If there are more requests than lists - creates a new list, but only keeps max defined amount.
 #[derive(Debug)]
 pub struct VisitedPool {
-    pool: RwLock<Vec<VisitedList>>
+    pool: RwLock<Vec<VisitedList>>,
 }
-
 
 impl VisitedPool {
     pub fn new() -> Self {
         VisitedPool {
-            pool: RwLock::new(vec![])
+            pool: RwLock::new(vec![]),
         }
     }
 

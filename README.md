@@ -6,8 +6,9 @@
     <b>Vector Similarity Search Engine with extended filtering support</b>
 </p>
 
+
 <p align=center>
-    <a href="https://slack.jina.ai"><img src="https://github.com/qdrant/qdrant/workflows/Tests/badge.svg"></a>
+    <a href="https://github.com/qdrant/qdrant/actions/workflows/rust.yml"><img src="https://github.com/qdrant/qdrant/workflows/Tests/badge.svg"></a>
     <a href="https://qdrant.github.io/qdrant/redoc/index.html"><img src="https://img.shields.io/badge/Docs-OpenAPI%203.0-success"></a>
     <a href="https://github.com/qdrant/qdrant/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-success"></a>
     <a href="https://t.me/joinchat/sIuUArGQRp9kMTUy"><img src="https://img.shields.io/badge/Telegram-Qdrant-blue.svg?logo=telegram" alt="Telegram"></a>
@@ -35,6 +36,15 @@ There are multiple ways to discover things, text search is not the only one.
 In the case of food, people rely more on appearance than description and ingredients.
 So why not let people choose their next lunch by its appearance, even if they don’t know the name of the dish?
 [Check it out!](https://food-discovery.qdrant.tech/)
+
+### Extreme classification - E-commerce Product Categorization :tv:
+
+Extreme classification is a rapidly growing research area within machine learning focusing on multi-class and multi-label problems involving an extremely large number of labels.
+Sometimes it is millions and tens of millions classes.
+The most promising way to solve this problem is to use similarity learning models.
+We put together a demo example of how you could approach the problem with a pre-trained transformer model and Qdrant.
+So you can [play with it online!](https://categories.qdrant.tech/)
+
 
 <details>
 <summary> More solutions </summary>
@@ -90,7 +100,7 @@ So why not let people choose their next lunch by its appearance, even if they do
 Online OpenAPI 3.0 documentation is available [here](https://qdrant.github.io/qdrant/redoc/index.html).
 OpenAPI makes it easy to generate a client for virtually any framework or programing language.
 
-You can also download raw OpenAPI [definitions](openapi/openapi.yaml).
+You can also download raw OpenAPI [definitions](openapi/openapi-merged.yaml).
 
 ## Features
 
@@ -130,7 +140,7 @@ Qdrant does not rely on any external database or orchestration controller, which
 Build your own from source
 
 ```bash
-docker build . --tag=qdrant
+docker build . --tag=generall/qdrant
 ```
 
 Or use latest pre-built image from [DockerHub](https://hub.docker.com/r/generall/qdrant)
@@ -145,7 +155,7 @@ To run container use command:
 docker run -p 6333:6333 \
     -v $(pwd)/path/to/data:/qdrant/storage \
     -v $(pwd)/path/to/custom_config.yaml:/qdrant/config/production.yaml \
-    qdrant
+    generall/qdrant
 ```
 
 * `/qdrant/storage` - is a place where Qdrant persists all your data. 
@@ -157,8 +167,9 @@ Now Qdrant should be accessible at [localhost:6333](http://localhost:6333/)
 ## Docs :notebook:
 
 * The best place to start is [Quick Start Guide](QUICK_START.md)
+* The [Documentation](https://qdrant.tech/documentation/)
 * Use the [OpenAPI specification](https://qdrant.github.io/qdrant/redoc/index.html) as a reference
-* Follow our [Step-by-Step Tutorial](https://qdrant.tech/articles/neural-search-tutorial/) to create your first neural network project with Qdrant
+* Follow our [Step-by-Step Tutorial](https://blog.qdrant.tech/neural-search-tutorial-3f034ab13adc) to create your first neural network project with Qdrant
 
 ## Contacts
 
@@ -180,6 +191,17 @@ Thanks to the people who contributed to Qdrant:
     <td align="center"><a href="https://t.me/neural_network_engineering"><img src="https://avatars.githubusercontent.com/u/1935623?v=4?s=50" width="50px;" alt=""/><br /><sub><b>Andrey Vasnetsov</b></sub></a><br /><a href="https://github.com/qdrant/qdrant/commits?author=generall" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/azayarni"><img src="https://avatars.githubusercontent.com/u/926368?v=4?s=50" width="50px;" alt=""/><br /><sub><b>Andre Zayarni</b></sub></a><br /><a href="https://github.com/qdrant/qdrant/commits?author=azayarni" title="Documentation">📖</a></td>
     <td align="center"><a href="http://www.linkedin.com/in/joanfontanalsmartinez/"><img src="https://avatars.githubusercontent.com/u/19825685?v=4?s=50" width="50px;" alt=""/><br /><sub><b>Joan Fontanals</b></sub></a><br /><a href="https://github.com/qdrant/qdrant/commits?author=JoanFM" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/trean"><img src="https://avatars.githubusercontent.com/u/7085263?v=4?s=50" width="50px;" alt=""/><br /><sub><b>trean</b></sub></a><br /><a href="https://github.com/qdrant/qdrant/commits?author=trean" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/kgrech"><img src="https://avatars.githubusercontent.com/u/9020133?v=4?s=50" width="50px;" alt=""/><br /><sub><b>Konstantin</b></sub></a><br /><a href="https://github.com/qdrant/qdrant/commits?author=kgrech" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/kekonen"><img src="https://avatars.githubusercontent.com/u/11177808?v=4?s=50" width="50px;" alt=""/><br /><sub><b>Daniil Naumetc</b></sub></a><br /><a href="https://github.com/qdrant/qdrant/commits?author=kekonen" title="Code">💻</a></td>
+    <td align="center"><a href="https://dev.to/vearutop"><img src="https://avatars.githubusercontent.com/u/1381436?v=4?s=50" width="50px;" alt=""/><br /><sub><b>Viacheslav Poturaev</b></sub></a><br /><a href="https://github.com/qdrant/qdrant/commits?author=vearutop" title="Documentation">📖</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/galibey"><img src="https://avatars.githubusercontent.com/u/48586936?v=4?s=50" width="50px;" alt=""/><br /><sub><b>Alexander Galibey</b></sub></a><br /><a href="https://github.com/qdrant/qdrant/commits?author=galibey" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/HaiCheViet"><img src="https://avatars.githubusercontent.com/u/37202591?v=4?s=50" width="50px;" alt=""/><br /><sub><b>HaiCheViet</b></sub></a><br /><a href="https://github.com/qdrant/qdrant/commits?author=HaiCheViet" title="Code">💻</a></td>
+    <td align="center"><a href="https://tranzystorek-io.github.io/"><img src="https://avatars.githubusercontent.com/u/5671049?v=4?s=50" width="50px;" alt=""/><br /><sub><b>Marcin Puc</b></sub></a><br /><a href="https://github.com/qdrant/qdrant/commits?author=tranzystorek-io" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/anveq"><img src="https://avatars.githubusercontent.com/u/94402218?v=4?s=50" width="50px;" alt=""/><br /><sub><b>Anton V.</b></sub></a><br /><a href="https://github.com/qdrant/qdrant/commits?author=anveq" title="Code">💻</a></td>
+    <td align="center"><a href="http://agourlay.github.io"><img src="https://avatars.githubusercontent.com/u/606963?v=4?s=50" width="50px;" alt=""/><br /><sub><b>Arnaud Gourlay</b></sub></a><br /><a href="https://github.com/qdrant/qdrant/commits?author=agourlay" title="Code">💻</a></td>
   </tr>
 </table>
 

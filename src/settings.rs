@@ -6,10 +6,10 @@ use storage::types::StorageConfig;
 #[derive(Debug, Deserialize, Clone)]
 pub struct ServiceConfig {
     pub host: String,
-    pub port: usize,
-    pub max_request_size_mb: usize
+    pub port: u16,
+    pub grpc_port: u16,
+    pub max_request_size_mb: usize,
 }
-
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
@@ -20,6 +20,7 @@ pub struct Settings {
 }
 
 impl Settings {
+    #[allow(dead_code)]
     pub fn new() -> Result<Self, ConfigError> {
         let mut s = Config::new();
 
@@ -29,7 +30,7 @@ impl Settings {
         // Add in the current environment file
         // Default to 'development' env
         // Note that this file is _optional_
-        let env = env::var("RUN_MODE").unwrap_or("development".into());
+        let env = env::var("RUN_MODE").unwrap_or_else(|_| "development".into());
         s.merge(File::with_name(&format!("config/{}", env)).required(false))?;
 
         // Add in a local configuration file

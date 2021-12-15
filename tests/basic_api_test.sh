@@ -5,22 +5,16 @@ set -ex
 
 QDRANT_HOST='localhost:6333'
 
-curl -X POST "http://$QDRANT_HOST/collections" \
+curl -X DELETE "http://$QDRANT_HOST/collections/test_collection" \
   -H 'Content-Type: application/json' \
-  --fail -s \
-  --data-raw '{
-        "delete_collection": "test_collection"
-    }' | jq
+  --fail -s | jq
 
-curl -X POST "http://$QDRANT_HOST/collections" \
+curl -X PUT "http://$QDRANT_HOST/collections/test_collection" \
   -H 'Content-Type: application/json' \
   --fail -s \
   --data-raw '{
-        "create_collection": {
-            "name": "test_collection",
-            "vector_size": 4,
-            "distance": "Dot"
-        }
+      "vector_size": 4,
+      "distance": "Dot"
     }' | jq
 
 curl --fail -s "http://$QDRANT_HOST/collections/test_collection" | jq
@@ -72,3 +66,33 @@ curl -L -X POST "http://$QDRANT_HOST/collections/test_collection/points/search" 
       "vector": [0.2, 0.1, 0.9, 0.7],
       "top": 3
   }' | jq
+
+
+curl -L -X POST "http://$QDRANT_HOST/collections/test_collection/points/scroll" \
+  --fail -s \
+  -H 'Content-Type: application/json' \
+  --data-raw '{ "offset": 2, "limit": 2, "with_vector": true }' | jq
+
+curl -L -X POST "http://$QDRANT_HOST/collections" \
+  --fail -s \
+  -H 'Content-Type: application/json' \
+  --data-raw '{
+      "change_aliases": {
+          "actions": [
+              {
+                  "create_alias": {
+                      "alias_name": "test_alias",
+                      "collection_name": "test_collection"
+                  }
+              }
+          ]
+      }
+  }' | jq
+
+curl -L -X POST "http://$QDRANT_HOST/collections/test_alias/points/search" \
+  -H 'Content-Type: application/json' \
+  --fail -s \
+  --data-raw '{
+        "vector": [0.2,0.1,0.9,0.7],
+        "top": 3
+    }' | jq
