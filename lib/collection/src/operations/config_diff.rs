@@ -1,21 +1,25 @@
-use serde::{Deserialize, Serialize};
-use merge::Merge;
-use serde::de::DeserializeOwned;
-use schemars::{JsonSchema};
-use crate::operations::types::CollectionResult;
-use segment::types::HnswConfig;
-use crate::config::WalConfig;
 use crate::collection_builder::optimizers_builder::OptimizersConfig;
+use crate::config::WalConfig;
+use crate::operations::types::CollectionResult;
+use merge::Merge;
+use schemars::JsonSchema;
+use segment::types::HnswConfig;
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 
 // Structures for partial update of collection params
 // ToDo: Make auto-generated somehow...
 
 pub trait DiffConfig<T: DeserializeOwned + Serialize> {
     fn update(self, config: &T) -> CollectionResult<T>
-        where Self: Sized,
-              Self: Serialize,
-              Self: DeserializeOwned,
-              Self: Merge { update_config(config, self) }
+    where
+        Self: Sized,
+        Self: Serialize,
+        Self: DeserializeOwned,
+        Self: Merge,
+    {
+        update_config(config, self)
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema, Copy, Clone, PartialEq, Eq, Merge)]
@@ -57,6 +61,8 @@ pub struct OptimizersConfigDiff {
     pub payload_indexing_threshold: Option<usize>,
     /// Minimum interval between forced flushes.
     pub flush_interval_sec: Option<u64>,
+    /// Maximum available threads for optimization workers
+    pub max_optimization_threads: Option<usize>,
 }
 
 impl DiffConfig<HnswConfig> for HnswConfigDiff {}
@@ -68,26 +74,28 @@ impl DiffConfig<WalConfig> for WalConfigDiff {}
 /// Hacky way to update configuration structures with diff-updates.
 /// Intended to only be used in non critical for speed places.
 /// ToDo: Replace with proc macro
-pub fn update_config<T: DeserializeOwned + Serialize, Y: DeserializeOwned + Serialize + Merge>(config: &T, mut update: Y) -> CollectionResult<T> {
+pub fn update_config<T: DeserializeOwned + Serialize, Y: DeserializeOwned + Serialize + Merge>(
+    config: &T,
+    mut update: Y,
+) -> CollectionResult<T> {
     let serialized = serde_json::to_vec(config)?;
-    let config_as_diff: Y = serde_json::from_slice(serialized.as_slice())?;
+    let config_as_diff: Y = serde_json::from_slice(&serialized)?;
     update.merge(config_as_diff);
     let serialized = serde_json::to_vec(&update)?;
-    let res = serde_json::from_slice(serialized.as_slice())?;
+    let res = serde_json::from_slice(&serialized)?;
     Ok(res)
 }
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use segment::types::HnswConfig;
     use crate::collection_builder::optimizers_builder::OptimizersConfig;
+    use segment::types::HnswConfig;
 
     #[test]
     fn test_hnsw_update() {
         let base_config = HnswConfig::default();
-        let update: HnswConfigDiff = serde_json::from_str(&r#"{ "m": 32 }"#).unwrap();
+        let update: HnswConfigDiff = serde_json::from_str(r#"{ "m": 32 }"#).unwrap();
         let new_config = update.update(&base_config).unwrap();
         assert_eq!(new_config.m, 32)
     }
@@ -102,8 +110,10 @@ mod tests {
             indexing_threshold: 50_000,
             payload_indexing_threshold: 20_000,
             flush_interval_sec: 30,
+            max_optimization_threads: 1,
         };
-        let update: OptimizersConfigDiff = serde_json::from_str(&r#"{ "indexing_threshold": 10000 }"#).unwrap();
+        let update: OptimizersConfigDiff =
+            serde_json::from_str(r#"{ "indexing_threshold": 10000 }"#).unwrap();
         let new_config = update.update(&base_config).unwrap();
         assert_eq!(new_config.indexing_threshold, 10000)
     }
@@ -111,7 +121,7 @@ mod tests {
     #[test]
     fn test_wal_config() {
         let base_config = WalConfig::default();
-        let update: WalConfigDiff = serde_json::from_str(&r#"{ "wal_segments_ahead": 2 }"#).unwrap();
+        let update: WalConfigDiff = serde_json::from_str(r#"{ "wal_segments_ahead": 2 }"#).unwrap();
         let new_config = update.update(&base_config).unwrap();
         assert_eq!(new_config.wal_segments_ahead, 2)
     }

@@ -4,14 +4,14 @@ extern crate wal;
 use std::marker::PhantomData;
 use std::result;
 
-use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 use thiserror::Error;
 use wal::Wal;
 use wal::WalOptions;
-use std::fmt::Debug;
 
-
+#[allow(clippy::enum_variant_names)]
 #[derive(Error, Debug)]
 #[error("{0}")]
 pub enum WalError {
@@ -22,7 +22,6 @@ pub enum WalError {
     #[error("Can't truncate WAL: {0}")]
     TruncateWalError(String),
 }
-
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -47,6 +46,12 @@ enum TestRecord {
 
 type Result<T> = result::Result<T, WalError>;
 
+/// Write-Ahead-Log wrapper with built-in type parsing.
+/// Stores sequences of records of type `R` in binary files.
+///
+/// Each stored record is enumerated with sequential number.
+/// Sequential number can be used to read stored records starting from some IDs,
+/// for removing old, no longer required, records.
 pub struct SerdeWal<R> {
     record: PhantomData<R>,
     wal: Wal,
@@ -56,20 +61,21 @@ impl<'s, R: DeserializeOwned + Serialize + Debug> SerdeWal<R> {
     pub fn new(dir: &str, wal_options: &WalOptions) -> Result<SerdeWal<R>> {
         let wal = Wal::with_options(dir, wal_options)
             .map_err(|err| WalError::InitWalError(format!("{:?}", err)))?;
-        return Ok(SerdeWal {
+        Ok(SerdeWal {
             record: PhantomData,
             wal,
-        });
+        })
     }
 
     pub fn write(&mut self, entity: &R) -> Result<u64> {
-        let binary_entity = rmp_serde::to_vec(&entity).unwrap();
+        // ToDo: Replace back to faster rmp, once this https://github.com/serde-rs/serde/issues/2055 solved
+        let binary_entity = serde_cbor::to_vec(&entity).unwrap();
         self.wal
             .append(&binary_entity)
             .map_err(|err| WalError::WriteWalError(format!("{:?}", err)))
     }
 
-    pub fn read_all(&'s self) -> impl Iterator<Item=(u64, R)> + 's {
+    pub fn read_all(&'s self) -> impl Iterator<Item = (u64, R)> + 's {
         self.read(self.wal.first_index())
     }
 
@@ -77,23 +83,30 @@ impl<'s, R: DeserializeOwned + Serialize + Debug> SerdeWal<R> {
         self.wal.num_entries()
     }
 
-    pub fn read(&'s self, start_from: u64) -> impl Iterator<Item=(u64, R)> + 's {
+    pub fn read(&'s self, start_from: u64) -> impl Iterator<Item = (u64, R)> + 's {
         let first_index = self.wal.first_index();
         let num_entries = self.wal.num_entries();
 
-        let iter = (start_from..(first_index + num_entries))
-            .map(move |idx| {
-                let record_bin = self.wal.entry(idx).expect("Can't read entry from WAL");
-                let record: R = rmp_serde::from_read_ref(&record_bin.to_vec())
-                    .expect("Can't deserialize entry, probably corrupted WAL on version mismatch");
-                (idx, record)
-            });
-
-        return iter;
+        (start_from..(first_index + num_entries)).map(move |idx| {
+            let record_bin = self.wal.entry(idx).expect("Can't read entry from WAL");
+            let record: R = serde_cbor::from_slice(&record_bin.to_vec())
+                .or_else(|_err| rmp_serde::from_read_ref(&record_bin.to_vec()))
+                .expect("Can't deserialize entry, probably corrupted WAL on version mismatch");
+            (idx, record)
+        })
     }
 
+    /// Inform WAL, that records older than `until_index` are no longer required.
+    /// If it is possible, WAL will remove unused files.
+    ///
+    /// # Arguments
+    ///
+    /// * `until_index` - the newest no longer required record sequence number
+    ///
     pub fn ack(&mut self, until_index: u64) -> Result<()> {
-        self.wal.prefix_truncate(until_index).map_err(|err| WalError::TruncateWalError(format!("{:?}", err)))
+        self.wal
+            .prefix_truncate(until_index)
+            .map_err(|err| WalError::TruncateWalError(format!("{:?}", err)))
     }
 }
 
@@ -103,21 +116,29 @@ mod tests {
 
     extern crate tempdir;
 
+    use std::fs;
+    use std::os::unix::fs::MetadataExt;
     use tempdir::TempDir;
 
     #[test]
     fn test_wal() {
         let dir = TempDir::new("wal_test").unwrap();
         let wal_options = WalOptions {
-            segment_capacity: 1000,
+            segment_capacity: 32 * 1024 * 1024,
             segment_queue_len: 0,
         };
 
-        let mut serde_wal: SerdeWal<TestRecord> = SerdeWal::new(dir.path().to_str().unwrap(), &wal_options).unwrap();
+        let mut serde_wal: SerdeWal<TestRecord> =
+            SerdeWal::new(dir.path().to_str().unwrap(), &wal_options).unwrap();
 
         let record = TestRecord::Struct1(TestInternalStruct1 { data: 10 });
 
         serde_wal.write(&record).expect("Can't write");
+
+        let metadata = fs::metadata(dir.path().join("open-1").to_str().unwrap()).unwrap();
+
+        println!("file size: {}", metadata.size());
+        assert_eq!(metadata.size() as usize, wal_options.segment_capacity);
 
         for (_idx, rec) in serde_wal.read(0) {
             println!("{:?}", rec);
@@ -135,7 +156,6 @@ mod tests {
         assert_eq!(idx1, 0);
         assert_eq!(idx2, 1);
 
-
         match record1 {
             TestRecord::Struct1(x) => assert_eq!(x.data, 10),
             TestRecord::Struct2(_) => panic!("Wrong structure"),
@@ -146,7 +166,7 @@ mod tests {
             TestRecord::Struct2(x) => {
                 assert_eq!(x.a, 12);
                 assert_eq!(x.b, 13);
-            },
+            }
         }
     }
 }
