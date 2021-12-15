@@ -8,9 +8,9 @@ use pyo3::prelude::*;
 use pyo3::PyErr;
 use pyo3::types::PyBytes;
 use pyo3::exceptions::PyException;
-use segment::types::{PointIdType, VectorElementType, ScoredPoint, ScoreType, PayloadKeyType, TheMap, PayloadType};
+use segment::types::{PointIdType, VectorElementType, ScoredPoint, ScoreType, PayloadKeyType, TheMap, PayloadType, WithPayload};
 use segment::entry::entry_point::{OperationResult, SegmentEntry, OperationError};
-use segment::segment_constructor::segment_constructor::build_segment;
+use segment::segment_constructor::build_segment;
 use prost::Message;
 use prost_types::value;
 use prost_types::Value;
@@ -251,7 +251,9 @@ impl PySegment {
             serde_json::from_str(&f).unwrap()
         });
         let search_params = params.map(|p| p.params);
-        let result = self.segment.search(&vector.to_vec().unwrap(), Option::from(&qdrant_filter), top_k, search_params.as_ref());
+
+        let with_payload = WithPayload { enable: false, payload_selector: None };
+        let result = self.segment.search(&vector.to_vec().unwrap(), &with_payload, Option::from(&qdrant_filter), top_k, search_params.as_ref());
         handle_inner_result(result.map(|vec| _convert_scored_point_vec(vec)))
     }
 }
